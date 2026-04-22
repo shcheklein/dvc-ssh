@@ -1,5 +1,6 @@
 # pylint: disable=redefined-outer-name
 
+import asyncio
 import os
 
 import pytest
@@ -36,6 +37,34 @@ def ssh_server(docker_services):
             return False
         else:
             return True
+
+    docker_services.wait_until_responsive(timeout=30.0, pause=1, check=_check)
+    return conn_info
+
+
+@pytest.fixture(scope="session")
+def kbdint_only_ssh_server(docker_services):
+    import asyncssh
+
+    conn_info = {
+        "host": "127.0.0.1",
+        "port": docker_services.port_for("openssh-kbdint-only", 22),
+    }
+
+    async def get_auth_methods():
+        return await asyncssh.get_server_auth_methods(
+            host=conn_info["host"],
+            port=conn_info["port"],
+            username=TEST_SSH_USER,
+        )
+
+    def _check():
+        try:
+            methods = asyncio.run(get_auth_methods())
+        except (OSError, asyncssh.Error):
+            return False
+        else:
+            return methods == ["keyboard-interactive"]
 
     docker_services.wait_until_responsive(timeout=30.0, pause=1, check=_check)
     return conn_info

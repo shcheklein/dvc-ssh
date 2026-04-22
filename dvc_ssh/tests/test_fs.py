@@ -43,14 +43,26 @@ def test_init():
     assert fs.fs_args["port"] == "1234"
     assert fs.fs_args["password"] == "xxx"
     assert fs.fs_args["passphrase"] == "yyy"
+    assert fs.fs_args["preferred_auth"] == [
+        "publickey",
+        "password",
+        "keyboard-interactive",
+    ]
 
 
-@pytest.mark.parametrize("option", ("password", "passphrase"))
-def test_ssh_ask_password(mocker, option):
+@pytest.mark.parametrize(
+    "option,expected_auth",
+    [
+        ("password", ["password", "keyboard-interactive"]),
+        ("passphrase", ["publickey"]),
+    ],
+)
+def test_ssh_ask_password(mocker, option, expected_auth):
     mocker.patch("dvc_ssh.ask_password", return_value="fish")
     args = {f"ask_{option}": True}
     fs = SSHFileSystem(user="test", host="2.2.2.2", **args)
     assert fs.fs_args[option] == "fish"
+    assert fs.fs_args["preferred_auth"] == expected_auth
 
 
 @pytest.mark.parametrize("password", [None, "foo"])
@@ -90,6 +102,26 @@ def test_ssh_keyfile(config, expected_keyfile):
         else expected_keyfile
     )
     assert fs.fs_args.get("client_keys") == expected_keyfiles
+
+
+@pytest.mark.parametrize(
+    "config,expected_preferred_auth",
+    [
+        ({"host": "example.com"}, None),
+        (
+            {"host": "example.com", "password": "secret"},
+            ["password", "keyboard-interactive"],
+        ),
+        ({"host": "example.com", "keyfile": "id_test"}, ["publickey"]),
+        (
+            {"host": "example.com", "keyfile": "id_test", "password": "secret"},
+            ["publickey", "password", "keyboard-interactive"],
+        ),
+    ],
+)
+def test_ssh_preferred_auth(config, expected_preferred_auth):
+    fs = SSHFileSystem(**config)
+    assert fs.fs_args.get("preferred_auth") == expected_preferred_auth
 
 
 @pytest.mark.parametrize(

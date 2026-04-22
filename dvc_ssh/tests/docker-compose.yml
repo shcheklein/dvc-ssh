@@ -4,10 +4,17 @@ services:
   openssh-server:
     image: ghcr.io/linuxserver/openssh-server
     environment:
+      - PASSWORD_ACCESS=true
       - USER_NAME=user
+      - USER_PASSWORD=password
       - PUBLIC_KEY_FILE=/tmp/key
     ports:
       - 2222
     volumes:
       - ./user.key.pub:/tmp/key
+  openssh-kbdint-only:
+    build:
+      context: ./kbdint_only
+    ports:
+      - 22
 
